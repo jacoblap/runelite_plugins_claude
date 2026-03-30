@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flux de Fabrication — Module Résidentiel</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: #0d1117;
+  --surface: #161b22;
+  --surface2: #1c2128;
+  --border: #30363d;
+  --text: #e6edf3;
+  --muted: #8b949e;
+  --structure: #58a6ff;
+  --charpente: #f0883e;
+  --toiture: #ff7b72;
+  --mep: #d2a8ff;
+  --enveloppe: #56d364;
+  --interieur: #79c0ff;
+  --expedition: #ffa657;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, 'Segoe UI', system-ui, sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Header ── */
+header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 18px 36px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.header-left h1 {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+}
+
+.header-left .subtitle {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 3px;
+}
+
+.stats-bar {
+  display: flex;
+  gap: 36px;
+}
+
+.stat-item { text-align: center; }
+
+.stat-num {
+  font-size: 24px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  letter-spacing: -0.5px;
+}
+
+.stat-label {
+  font-size: 10px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-top: 4px;
+}
+
+/* ── Legend ── */
+#legend {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 36px;
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--muted);
+  cursor: default;
+  padding: 3px 8px;
+  border-radius: 4px;
+  transition: background 0.15s;
+}
+
+.legend-item:hover { background: var(--surface2); color: var(--text); }
+
+.legend-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.legend-hours {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.65;
+}
+
+/* ── Diagram ── */
+#diagram-wrap {
+  flex: 1;
+  overflow: auto;
+  padding: 36px 40px 48px;
+  background: var(--bg);
+  background-image: radial-gradient(circle at 1px 1px, #1a1f27 1px, transparent 0);
+  background-size: 28px 28px;
+}
+
+svg { display: block; }
+
+/* ── Nodes (SVG hover via JS, CSS for fallback) ── */
+.node-group { cursor: pointer; }
+
+/* ── Footer bar ── */
+#footer {
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  padding: 14px 36px;
+}
+
+.footer-label {
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  margin-bottom: 8px;
+}
+
+.phase-bar-container {
+  display: flex;
+  height: 24px;
+  border-radius: 6px;
+  overflow: hidden;
+  gap: 2px;
+}
+
+.phase-bar-segment {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 600;
+  color: #0d1117;
+  transition: filter 0.2s;
+  cursor: default;
+  overflow: hidden;
+  min-width: 2px;
+  position: relative;
+}
+
+.phase-bar-segment:hover { filter: brightness(1.15); }
+
+/* ── Tooltip ── */
+#tooltip {
+  position: fixed;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+  font-size: 12px;
+  max-width: 280px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.12s;
+  z-index: 9999;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.04);
+}
+
+#tooltip.visible { opacity: 1; }
+
+.tt-phase-tag {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 10px;
+  margin-bottom: 8px;
+  opacity: 0.9;
+}
+
+.tt-title {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 6px;
+  line-height: 1.3;
+}
+
+.tt-hours {
+  font-size: 22px;
+  font-weight: 800;
+  margin-bottom: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.tt-hours small {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.tt-section {
+  font-size: 10px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-bottom: 5px;
+  margin-top: 10px;
+}
+
+.tt-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.tt-chip {
+  font-size: 11px;
+  padding: 2px 8px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 4px;
+  color: #c9d1d9;
+}
+
+.tt-chip.dep { border-left: 2px solid var(--muted); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <h1>Flux de Fabrication</h1>
+    <div class="subtitle">Module résidentiel — Diagramme de dépendances &amp; séquencement</div>
+  </div>
+  <div class="stats-bar">
+    <div class="stat-item">
+      <div class="stat-num" id="stat-hours" style="color:var(--charpente)">—</div>
+      <div class="stat-label">Heures estimées</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num" id="stat-tasks" style="color:var(--structure)">—</div>
+      <div class="stat-label">Tâches</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num" id="stat-stages" style="color:var(--enveloppe)">—</div>
+      <div class="stat-label">Étapes critiques</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num" id="stat-parallel" style="color:var(--mep)">—</div>
+      <div class="stat-label">Tâches parallèles max</div>
+    </div>
+  </div>
+</header>
+
+<div id="legend"></div>
+
+<div id="diagram-wrap">
+  <svg id="diagram"></svg>
+</div>
+
+<div id="footer">
+  <div class="footer-label">Répartition des heures par phase</div>
+  <div class="phase-bar-container" id="phase-bar"></div>
+</div>
+
+<div id="tooltip">
+  <div id="tt-phase-tag" class="tt-phase-tag"></div>
+  <div id="tt-title" class="tt-title"></div>
+  <div id="tt-hours" class="tt-hours"></div>
+  <div id="tt-deps-wrap"></div>
+  <div id="tt-sources-wrap"></div>
+  <div id="tt-blocks-wrap"></div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// 1. DATA
+// ═══════════════════════════════════════════════════════════
+const tasks = [
+  { task: "Poutrelles", hours: 89.43, source_groups: ["Plancher du rez-de-chaussée"], dependencies: [] },
+  { task: "Débitage murs", hours: 18.28, source_groups: ["Mur temporaire"], dependencies: [] },
+  { task: "Petits murs", hours: 55.83, source_groups: ["Ossature des cloisons intérieures", "Ossature des cloisons/murs mitoyen(ne)s double Côté A", "Ossature des cloisons/murs mitoyen(ne)s double Côté B"], dependencies: ["Poutrelles"] },
+  { task: "Grands murs", hours: 95.15, source_groups: ["Ossature des murs extérieurs"], dependencies: ["Poutrelles"] },
+  { task: "Montage des murs", hours: 0, source_groups: [], dependencies: ["Débitage murs", "Petits murs", "Grands murs"] },
+  { task: "Débitage truss", hours: 130.82, source_groups: ["Ferme de toit"], dependencies: [] },
+  { task: "Presque truss", hours: 0, source_groups: [], dependencies: ["Débitage truss"] },
+  { task: "Plafond", hours: 37.93, source_groups: ["Plafond isolé"], dependencies: ["Presque truss", "Poutrelles"] },
+  { task: "Montage plafond", hours: 28.80, source_groups: ["Toiture"], dependencies: ["Montage des murs", "Plafond"] },
+  { task: "Fabrique division centrale", hours: 9.18, source_groups: ["Ossature des cloisons/murs mitoyen(ne)s double Côté B"], dependencies: [] },
+  { task: "Lien continu truss", hours: 45.50, source_groups: ["Étanchéité de la toiture"], dependencies: ["Montage plafond"] },
+  { task: "Débordement de toit", hours: 17.18, source_groups: ["Débord de toit"], dependencies: ["Lien continu truss"] },
+  { task: "Isolation toit", hours: 0, source_groups: [], dependencies: ["Débordement de toit"] },
+  { task: "Couverture (pontage)", hours: 0, source_groups: [], dependencies: ["Isolation toit"] },
+  { task: "Membrane + bardeau", hours: 0, source_groups: [], dependencies: ["Couverture (pontage)"] },
+  { task: "Rough électrique", hours: 59.97, source_groups: ["Électricité - Chauffage", "Électricité - Éclairage", "Électricité - Filage et boîte", "Électricité - Panneau électrique", "Électricité - Réseautique"], dependencies: ["Montage plafond"] },
+  { task: "Rough plomberie", hours: 9.38, source_groups: ["Tuyauterie (brut) d'alimentation d'eau du bâtiment", "Tuyauterie (brut) de drainage et ventilation du bâtiment"], dependencies: ["Montage plafond"] },
+  { task: "Ventilation", hours: 12.48, source_groups: ["Ventilation-Climatisation-Chauffage - Conduits et raccordements", "Échangeur d'air", "Hotte de cuisine"], dependencies: ["Montage plafond"] },
+  { task: "OSB division centrale", hours: 9.18, source_groups: ["Ossature des cloisons/murs mitoyen(ne)s double Côté A"], dependencies: ["Rough électrique", "Rough plomberie", "Ventilation", "Fabrique division centrale"] },
+  { task: "Isolation intérieure avant revêtement", hours: 33.48, source_groups: ["Isolation cloison/mur mitoyen(ne) simple", "Isolation cloisons/murs mitoyen(ne)s double Côté A", "Isolation cloisons/murs mitoyen(ne)s double Côté B", "Isolation et l'étanchéité de l'enveloppe intérieure"], dependencies: ["Rough électrique", "Rough plomberie", "Ventilation"] },
+  { task: "Pose membrane fenêtres", hours: 48.20, source_groups: ["Étanchéité et isolation de l'enveloppe extérieure"], dependencies: ["Isolation intérieure avant revêtement"] },
+  { task: "Pose fenêtres", hours: 11.38, source_groups: ["Fenêtres extérieures"], dependencies: ["Pose membrane fenêtres"] },
+  { task: "Portes extérieures", hours: 11.97, source_groups: ["Portes extérieures"], dependencies: ["Pose membrane fenêtres"] },
+  { task: "Gypse", hours: 62.43, source_groups: ["Gypse"], dependencies: ["Isolation intérieure avant revêtement", "OSB division centrale"] },
+  { task: "Portes intérieures", hours: 12.77, source_groups: ["Portes intérieures"], dependencies: ["Gypse"] },
+  { task: "Armoires", hours: 20.00, source_groups: ["Armoires au projet"], dependencies: ["Gypse"] },
+  { task: "Finition électrique", hours: 29.13, source_groups: ["Électricité - Finition électrique", "Électricité - Prise électrique"], dependencies: ["Armoires", "Gypse"] },
+  { task: "Finition plomberie", hours: 21.50, source_groups: ["Plomberie cuisine", "Plomberie de salle de bain"], dependencies: ["Armoires", "Gypse"] },
+  { task: "Revêtement extérieur", hours: 21.95, source_groups: ["Lattage extérieur", "Revêtement de fibre de bois", "Scellant d'étanchéité extérieur"], dependencies: ["Pose fenêtres", "Portes extérieures"] },
+  { task: "Habillage", hours: 25.58, source_groups: ["Matériaux appliqués et moulures"], dependencies: ["Revêtement extérieur", "Membrane + bardeau"] },
+  { task: "Préparation chargement", hours: 20.32, source_groups: ["Emballage du module"], dependencies: ["Finition électrique", "Finition plomberie", "Habillage"] },
+  { task: "Chargement", hours: 0, source_groups: [], dependencies: ["Préparation chargement"] },
+];
+
+// ═══════════════════════════════════════════════════════════
+// 2. PHASES
+// ═══════════════════════════════════════════════════════════
+const phases = {
+  structure:  { label: "Structure",          color: "#58a6ff", bg: "rgba(88,166,255,0.12)",  tasks: ["Poutrelles","Débitage murs","Petits murs","Grands murs","Montage des murs"] },
+  charpente:  { label: "Charpente & Toit",   color: "#f0883e", bg: "rgba(240,136,62,0.12)",  tasks: ["Débitage truss","Presque truss","Plafond","Montage plafond"] },
+  toiture:    { label: "Couverture",          color: "#ff7b72", bg: "rgba(255,123,114,0.12)", tasks: ["Lien continu truss","Débordement de toit","Isolation toit","Couverture (pontage)","Membrane + bardeau"] },
+  mep:        { label: "MEP",                 color: "#d2a8ff", bg: "rgba(210,168,255,0.12)", tasks: ["Rough électrique","Rough plomberie","Ventilation","Finition électrique","Finition plomberie"] },
+  enveloppe:  { label: "Enveloppe",           color: "#56d364", bg: "rgba(86,211,100,0.12)",  tasks: ["Pose membrane fenêtres","Pose fenêtres","Portes extérieures","Revêtement extérieur"] },
+  interieur:  { label: "Intérieur",           color: "#79c0ff", bg: "rgba(121,192,255,0.12)", tasks: ["Fabrique division centrale","OSB division centrale","Isolation intérieure avant revêtement","Gypse","Portes intérieures","Armoires"] },
+  expedition: { label: "Expédition",          color: "#ffa657", bg: "rgba(255,166,87,0.12)",  tasks: ["Habillage","Préparation chargement","Chargement"] },
+};
+
+// Build maps
+const taskMap = {}, successors = {}, taskPhase = {};
+for (const t of tasks) { taskMap[t.task] = t; successors[t.task] = []; }
+for (const t of tasks) for (const d of t.dependencies) successors[d].push(t.task);
+for (const [key, ph] of Object.entries(phases)) for (const name of ph.tasks) taskPhase[name] = key;
+
+// ═══════════════════════════════════════════════════════════
+// 3. LEVEL ASSIGNMENT
+// ═══════════════════════════════════════════════════════════
+const levels = {};
+function getLevel(name) {
+  if (levels[name] !== undefined) return levels[name];
+  const t = taskMap[name];
+  levels[name] = t.dependencies.length
+    ? Math.max(...t.dependencies.map(getLevel)) + 1
+    : 0;
+  return levels[name];
+}
+for (const t of tasks) getLevel(t.task);
+
+const maxLevel = Math.max(...Object.values(levels));
+
+// ═══════════════════════════════════════════════════════════
+// 4. NODE POSITIONS
+// ═══════════════════════════════════════════════════════════
+const NODE_W    = 152;
+const NODE_H    = 66;
+const COL_STR   = 178;   // column stride (center-to-center horizontal distance)
+const ROW_H     = 90;
+const PAD_L     = 64;
+const PAD_T     = 54;
+
+// Manual vertical ordering per level (visually optimized)
+const levelOrder = {
+  0:  ["Poutrelles", "Débitage murs", "Débitage truss", "Fabrique division centrale"],
+  1:  ["Petits murs", "Grands murs", "Presque truss"],
+  2:  ["Montage des murs", "Plafond"],
+  3:  ["Montage plafond"],
+  4:  ["Rough électrique", "Rough plomberie", "Ventilation", "Lien continu truss"],
+  5:  ["Isolation intérieure avant revêtement", "OSB division centrale", "Débordement de toit"],
+  6:  ["Pose membrane fenêtres", "Gypse", "Isolation toit"],
+  7:  ["Pose fenêtres", "Portes extérieures", "Portes intérieures", "Armoires", "Couverture (pontage)"],
+  8:  ["Revêtement extérieur", "Finition électrique", "Finition plomberie", "Membrane + bardeau"],
+  9:  ["Habillage"],
+  10: ["Préparation chargement"],
+  11: ["Chargement"],
+};
+
+const maxNodesInCol = Math.max(...Object.values(levelOrder).map(v => v.length));
+const SVG_W = PAD_L + maxLevel * COL_STR + NODE_W + 64;
+const SVG_H = PAD_T + maxNodesInCol * ROW_H + 64;
+
+const nodePos = {};
+for (const [lvlStr, names] of Object.entries(levelOrder)) {
+  const l = +lvlStr;
+  const n = names.length;
+  const totalArea = maxNodesInCol * ROW_H;
+  const colArea   = n * ROW_H;
+  const startY    = PAD_T + (totalArea - colArea) / 2;
+  for (let i = 0; i < names.length; i++) {
+    const x = PAD_L + l * COL_STR;
+    const y = startY + i * ROW_H;
+    nodePos[names[i]] = { x, y, cx: x + NODE_W / 2, cy: y + NODE_H / 2 };
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// 5. STATS
+// ═══════════════════════════════════════════════════════════
+const totalHours = tasks.reduce((s, t) => s + t.hours, 0);
+const maxParallel = Math.max(...Object.values(levelOrder).map(v => v.length));
+document.getElementById('stat-hours').textContent   = totalHours.toFixed(1) + ' h';
+document.getElementById('stat-tasks').textContent   = tasks.length;
+document.getElementById('stat-stages').textContent  = maxLevel + 1;
+document.getElementById('stat-parallel').textContent = maxParallel;
+
+// ═══════════════════════════════════════════════════════════
+// 6. LEGEND
+// ═══════════════════════════════════════════════════════════
+const legendEl = document.getElementById('legend');
+for (const [key, ph] of Object.entries(phases)) {
+  const hrs = tasks.filter(t => ph.tasks.includes(t.task)).reduce((s, t) => s + t.hours, 0);
+  const item = document.createElement('div');
+  item.className = 'legend-item';
+  item.innerHTML = `
+    <div class="legend-swatch" style="background:${ph.color}"></div>
+    <span>${ph.label}</span>
+    <span class="legend-hours">${hrs.toFixed(1)} h</span>
+  `;
+  legendEl.appendChild(item);
+}
+
+// Phase bar
+const barEl = document.getElementById('phase-bar');
+for (const [key, ph] of Object.entries(phases)) {
+  const hrs = tasks.filter(t => ph.tasks.includes(t.task)).reduce((s, t) => s + t.hours, 0);
+  const pct = (hrs / totalHours) * 100;
+  if (pct < 0.5) continue;
+  const seg = document.createElement('div');
+  seg.className = 'phase-bar-segment';
+  seg.style.cssText = `width:${pct}%;background:${ph.color};`;
+  seg.title = `${ph.label}: ${hrs.toFixed(1)} h (${pct.toFixed(1)}%)`;
+  if (pct > 5) seg.textContent = `${pct.toFixed(0)}%`;
+  barEl.appendChild(seg);
+}
+
+// ═══════════════════════════════════════════════════════════
+// 7. TEXT WRAPPING UTILITY
+// ═══════════════════════════════════════════════════════════
+function wrapText(name, maxChars = 17) {
+  if (name.length <= maxChars) return [name];
+  const words = name.split(' ');
+  let line1 = words[0];
+  for (let i = 1; i < words.length; i++) {
+    const test = line1 + ' ' + words[i];
+    if (test.length > maxChars) {
+      let line2 = words.slice(i).join(' ');
+      if (line2.length > maxChars) line2 = line2.slice(0, maxChars - 1) + '…';
+      return [line1, line2];
+    }
+    line1 = test;
+  }
+  return [line1];
+}
+
+// ═══════════════════════════════════════════════════════════
+// 8. SVG SETUP
+// ═══════════════════════════════════════════════════════════
+const NS = 'http://www.w3.org/2000/svg';
+const el = (tag, attrs = {}) => {
+  const e = document.createElementNS(NS, tag);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+  return e;
+};
+
+const svg = document.getElementById('diagram');
+svg.setAttribute('width', SVG_W);
+svg.setAttribute('height', SVG_H);
+
+// ── DEFS ──
+const defs = el('defs');
+
+// Arrowhead per phase
+for (const [key, ph] of Object.entries(phases)) {
+  const marker = el('marker', {
+    id: `arr-${key}`, viewBox: '0 0 10 10',
+    refX: '9', refY: '5',
+    markerWidth: '5', markerHeight: '5',
+    orient: 'auto-start-reverse',
+  });
+  const arr = el('path', { d: 'M0,0 L10,5 L0,10 Z', fill: ph.color });
+  marker.appendChild(arr);
+  defs.appendChild(marker);
+}
+
+// Glow filter
+const fltGlow = el('filter', { id: 'glow', x: '-25%', y: '-25%', width: '150%', height: '150%' });
+const fgBlur = el('feGaussianBlur', { in: 'SourceGraphic', stdDeviation: '4', result: 'blur' });
+const fgMerge = el('feMerge');
+fgMerge.appendChild(el('feMergeNode', { in: 'blur' }));
+fgMerge.appendChild(el('feMergeNode', { in: 'SourceGraphic' }));
+fltGlow.appendChild(fgBlur);
+fltGlow.appendChild(fgMerge);
+defs.appendChild(fltGlow);
+
+// Shadow filter
+const fltShadow = el('filter', { id: 'shadow', x: '-15%', y: '-15%', width: '130%', height: '130%' });
+fltShadow.appendChild(el('feDropShadow', { dx: '0', dy: '2', stdDeviation: '3', 'flood-color': '#000', 'flood-opacity': '0.5' }));
+defs.appendChild(fltShadow);
+
+svg.appendChild(defs);
+
+// ── COLUMN GUIDES ──
+const guidesG = el('g');
+for (let l = 0; l <= maxLevel; l++) {
+  const cx = PAD_L + l * COL_STR + NODE_W / 2;
+  // Dashed guide line
+  guidesG.appendChild(el('line', {
+    x1: cx, y1: 16, x2: cx, y2: SVG_H - 16,
+    stroke: '#1e2530', 'stroke-width': '1', 'stroke-dasharray': '5 5',
+  }));
+  // Stage label
+  const txt = el('text', {
+    x: cx, y: '18',
+    'text-anchor': 'middle', fill: '#3a424e',
+    'font-size': '10', 'font-family': '-apple-system,sans-serif',
+    'font-weight': '500',
+  });
+  txt.textContent = `${l + 1}`;
+  guidesG.appendChild(txt);
+}
+svg.appendChild(guidesG);
+
+// ── EDGES ──
+const edgesG = el('g', { id: 'edges-layer' });
+const edgeEls = {}; // key "src→dst" → path element
+
+for (const t of tasks) {
+  const tPos = nodePos[t.task];
+  if (!tPos) continue;
+  for (const dep of t.dependencies) {
+    const dPos = nodePos[dep];
+    if (!dPos) continue;
+    const phKey = taskPhase[dep] || 'structure';
+    const ph = phases[phKey];
+    const span = levels[t.task] - levels[dep];
+
+    const x1 = dPos.x + NODE_W, y1 = dPos.cy;
+    const x2 = tPos.x,          y2 = tPos.cy;
+    const dx = x2 - x1;
+    const cpOff = Math.max(dx * 0.45, 35);
+    const d = `M${x1},${y1} C${x1 + cpOff},${y1} ${x2 - cpOff},${y2} ${x2},${y2}`;
+
+    const baseOpacity = Math.max(0.18, 0.42 - (span - 1) * 0.07);
+    const p = el('path', {
+      d,
+      fill: 'none',
+      stroke: ph.color,
+      'stroke-width': '1.5',
+      opacity: baseOpacity,
+      'marker-end': `url(#arr-${phKey})`,
+      'data-src': dep,
+      'data-dst': t.task,
+    });
+    edgesG.appendChild(p);
+    edgeEls[`${dep}→${t.task}`] = p;
+  }
+}
+svg.appendChild(edgesG);
+
+// ── NODES ──
+const nodesG = el('g', { id: 'nodes-layer' });
+const nodeEls = {}; // name → { g, rect, lines array }
+
+const tooltip  = document.getElementById('tooltip');
+const ttTag    = document.getElementById('tt-phase-tag');
+const ttTitle  = document.getElementById('tt-title');
+const ttHours  = document.getElementById('tt-hours');
+const ttDeps   = document.getElementById('tt-deps-wrap');
+const ttSrcs   = document.getElementById('tt-sources-wrap');
+const ttBlocks = document.getElementById('tt-blocks-wrap');
+
+for (const t of tasks) {
+  const pos = nodePos[t.task];
+  if (!pos) continue;
+  const phKey = taskPhase[t.task] || 'structure';
+  const ph = phases[phKey];
+  const lines = wrapText(t.task);
+  const twoLines = lines.length > 1;
+
+  const g = el('g', { class: 'node-group', transform: `translate(${pos.x},${pos.y})` });
+
+  // Drop shadow backing
+  const shadow = el('rect', {
+    x: '3', y: '4', width: NODE_W, height: NODE_H,
+    rx: '9', fill: 'rgba(0,0,0,0.4)',
+  });
+  g.appendChild(shadow);
+
+  // Main rect
+  const rect = el('rect', {
+    width: NODE_W, height: NODE_H,
+    rx: '9', ry: '9',
+    fill: '#161b22',
+    stroke: ph.color,
+    'stroke-width': '1.5',
+  });
+  g.appendChild(rect);
+
+  // Left accent strip
+  const strip = el('rect', {
+    x: '0', y: '0', width: '5', height: NODE_H,
+    rx: '9', fill: ph.color, opacity: '0.85',
+  });
+  g.appendChild(strip);
+  // Right side of strip (square)
+  const stripR = el('rect', {
+    x: '3', y: '0', width: '2', height: NODE_H,
+    fill: ph.color, opacity: '0.85',
+  });
+  g.appendChild(stripR);
+
+  // ── Text ──
+  const TEXT_X = '14';
+  const hasHours = t.hours > 0;
+
+  if (twoLines) {
+    // 2-line name
+    const y1 = hasHours ? '19' : '26';
+    const y2 = hasHours ? '31' : '38';
+    const l1 = el('text', { x: TEXT_X, y: y1, fill: '#e6edf3', 'font-size': '11', 'font-weight': '600', 'font-family': '-apple-system,sans-serif' });
+    l1.textContent = lines[0];
+    const l2 = el('text', { x: TEXT_X, y: y2, fill: '#e6edf3', 'font-size': '11', 'font-weight': '600', 'font-family': '-apple-system,sans-serif' });
+    l2.textContent = lines[1];
+    g.appendChild(l1);
+    g.appendChild(l2);
+    if (hasHours) {
+      const h = el('text', { x: TEXT_X, y: '50', fill: ph.color, 'font-size': '13', 'font-weight': '800', 'font-family': '-apple-system,sans-serif', 'font-variant-numeric': 'tabular-nums' });
+      h.textContent = t.hours.toFixed(1) + ' h';
+      g.appendChild(h);
+    } else {
+      const a = el('text', { x: TEXT_X, y: '50', fill: '#3a424e', 'font-size': '10', 'font-family': '-apple-system,sans-serif' });
+      a.textContent = '— assemblage —';
+      g.appendChild(a);
+    }
+  } else {
+    // 1-line name
+    const y1 = hasHours ? '24' : '36';
+    const l1 = el('text', { x: TEXT_X, y: y1, fill: '#e6edf3', 'font-size': '11', 'font-weight': '600', 'font-family': '-apple-system,sans-serif' });
+    l1.textContent = lines[0];
+    g.appendChild(l1);
+    if (hasHours) {
+      const h = el('text', { x: TEXT_X, y: '46', fill: ph.color, 'font-size': '13', 'font-weight': '800', 'font-family': '-apple-system,sans-serif', 'font-variant-numeric': 'tabular-nums' });
+      h.textContent = t.hours.toFixed(1) + ' h';
+      g.appendChild(h);
+    } else {
+      const a = el('text', { x: TEXT_X, y: '46', fill: '#3a424e', 'font-size': '10', 'font-family': '-apple-system,sans-serif' });
+      a.textContent = '— assemblage —';
+      g.appendChild(a);
+    }
+  }
+
+  nodeEls[t.task] = { g, rect, shadow };
+  nodesG.appendChild(g);
+
+  // ── Interactions ──
+  g.addEventListener('mouseenter', (e) => {
+    // Highlight this node
+    rect.setAttribute('stroke-width', '2.5');
+    rect.setAttribute('filter', 'url(#glow)');
+    shadow.setAttribute('opacity', '0');
+
+    // Highlight connected edges, dim others
+    for (const [key, pEl] of Object.entries(edgeEls)) {
+      const [src, dst] = key.split('→');
+      const connected = src === t.task || dst === t.task;
+      pEl.setAttribute('opacity', connected ? '0.85' : '0.05');
+      if (connected) pEl.setAttribute('stroke-width', '2.5');
+    }
+
+    // Build tooltip content
+    const phObj = phases[phKey];
+    ttTag.textContent = phObj.label;
+    ttTag.style.cssText = `background:${phObj.color};color:#0d1117`;
+    ttTitle.textContent = t.task;
+    ttHours.innerHTML = t.hours > 0
+      ? `${t.hours.toFixed(2)} <small>heures</small>`
+      : `<span style="color:var(--muted);font-size:14px">Étape d'assemblage</span>`;
+    ttHours.style.color = t.hours > 0 ? phObj.color : 'inherit';
+
+    ttDeps.innerHTML = t.dependencies.length ? `
+      <div class="tt-section">Nécessite</div>
+      <div class="tt-chips">${t.dependencies.map(d => `<span class="tt-chip dep">${d}</span>`).join('')}</div>
+    ` : '';
+
+    const blocks = successors[t.task] || [];
+    ttBlocks.innerHTML = blocks.length ? `
+      <div class="tt-section">Débloque</div>
+      <div class="tt-chips">${blocks.map(b => `<span class="tt-chip">${b}</span>`).join('')}</div>
+    ` : '';
+
+    ttSrcs.innerHTML = t.source_groups.length ? `
+      <div class="tt-section">Groupes sources</div>
+      <div class="tt-chips">${t.source_groups.map(s => `<span class="tt-chip">${s}</span>`).join('')}</div>
+    ` : '';
+
+    tooltip.classList.add('visible');
+  });
+
+  g.addEventListener('mousemove', (e) => {
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const tw = tooltip.offsetWidth  || 280;
+    const th = tooltip.offsetHeight || 200;
+    let lx = e.clientX + 18, ly = e.clientY - 12;
+    if (lx + tw > vw - 8) lx = e.clientX - tw - 14;
+    if (ly + th > vh - 8) ly = e.clientY - th - 12;
+    tooltip.style.left = lx + 'px';
+    tooltip.style.top  = ly + 'px';
+  });
+
+  g.addEventListener('mouseleave', () => {
+    rect.setAttribute('stroke-width', '1.5');
+    rect.removeAttribute('filter');
+    shadow.setAttribute('opacity', '1');
+    // Restore edges
+    for (const [key, pEl] of Object.entries(edgeEls)) {
+      const [src, dst] = key.split('→');
+      const span = levels[dst] - levels[src];
+      const base = Math.max(0.18, 0.42 - (span - 1) * 0.07);
+      pEl.setAttribute('opacity', base);
+      pEl.setAttribute('stroke-width', '1.5');
+    }
+    tooltip.classList.remove('visible');
+  });
+}
+
+svg.appendChild(nodesG);
+</script>
+</body>
+</html>
